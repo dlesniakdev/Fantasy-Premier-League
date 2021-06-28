@@ -29,7 +29,13 @@ positions = {
 data_names = []
 data_cost = []
 data_total_points = []
+data_cost_effective = []
+data_time_effective = []
 data_players = {}
+data_is_gkp = []
+data_is_def = []
+data_is_mid = []
+data_is_fwd = []
 
 def create_teams_dict():
     with open(dataPath + "teams.csv", newline='') as csvfile:
@@ -81,6 +87,21 @@ def calculate_time_effectiveness(row):
     return int(row['total_points']) / int(row['minutes'])
 
 
+def set_position(index, position):
+    data_is_gkp.insert(index, 0)
+    data_is_def.insert(index, 0)
+    data_is_mid.insert(index, 0)
+    data_is_fwd.insert(index, 0)
+    if position == 'GKP':
+        data_is_gkp.insert(index, 1)
+    elif position == 'DEF':
+        data_is_def.insert(index, 1)
+    elif position == 'MID':
+        data_is_mid.insert(index, 1)
+    elif position == 'FWD':
+        data_is_fwd.insert(index, 1)
+
+
 def normalize_data():
     for i, player in enumerate(players):
         key = player['web_name'] + '_' + player["team_short"]
@@ -90,7 +111,11 @@ def normalize_data():
         data_names.insert(i, key)
         data_cost.insert(i, player['now_cost'])
         data_total_points.insert(i, player['total_points'])
+        data_cost_effective.insert(i, player['cost_effective'])
+        data_time_effective.insert(i, player['time_effective'])
+        set_position(i, player['element_type'])
         data_players[key] = {"Player": player['web_name'], "Team": player['team'], "Position": player['element_type'], "Cost": player['now_cost'], "Total": player['total_points']}
+    print("Normalized {} players".format(len(data_names)))
 
 
 def calculate():
@@ -98,14 +123,14 @@ def calculate():
 
     LpVariableList = [pulp.LpVariable('{}'.format(item), lowBound=0, upBound=1) for item in data_names]
 
-    problem = pulp.LpProblem(name="Total Points", sense=pulp.LpMaximize)
-    problem += pulp.lpDot(data_total_points, LpVariableList)
+    problem = pulp.LpProblem(name="Total Points Maximizer", sense=pulp.LpMaximize)
+    problem += pulp.lpDot(data_cost_effective, LpVariableList)
     problem += pulp.lpDot(data_cost, LpVariableList) <= 1000
-    problem += pulp.lpDot([1 for i in data_names], LpVariableList) <= 15
+    problem += pulp.lpDot(data_is_gkp, LpVariableList) == 2
+    problem += pulp.lpDot(data_is_def, LpVariableList) == 5
+    problem += pulp.lpDot(data_is_mid, LpVariableList) == 5
+    problem += pulp.lpDot(data_is_fwd, LpVariableList) == 3
 
-    print(pulp.lpDot(data_cost, LpVariableList))
-    print(pulp.lpDot([1 for i in data_names], LpVariableList))
-    pass
     # Solve
     status = problem.solve()
     print(pulp.LpStatus[status])
@@ -115,16 +140,28 @@ def calculate():
     total_cost = 0
     total_points = 0
     picked_players = 0
+    picked_per_position = {
+        "GKP": 0,
+        "DEF": 0,
+        "MID": 0,
+        "FWD": 0
+    }
     for player in LpVariableList:
         if int(player.value()) > 0:
             p = data_players[str(player)]
             total_cost += p['Cost']
             total_points += p['Total']
             picked_players += 1
+            picked_per_position[p['Position']] += 1
             print(str(player) + " × " + str(int(player.value())) + " | " + str(p))
+
     print("Total cost: " + str(total_cost))
     print("Total points: " + str(total_points))
     print("Picked players: " + str(picked_players))
+    print("Picked GKP: " + str(picked_per_position['GKP']))
+    print("Picked DEF: " + str(picked_per_position['DEF']))
+    print("Picked MID: " + str(picked_per_position['MID']))
+    print("Picked FWD: " + str(picked_per_position['FWD']))
 
 def main():
     create_teams_dict()
