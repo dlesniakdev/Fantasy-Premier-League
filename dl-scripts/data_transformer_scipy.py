@@ -5,14 +5,13 @@ from sklearn import preprocessing
 import pulp
 
 seasons = [
+    "2020-21",
     "2021-22",
-    "2020-21"
 ]
 
 teams = {}
-players = []
+players = {}
 player_codes = []
-ignore_player_codes = []
 
 positions = {
     1: {
@@ -66,6 +65,7 @@ def data_cleanup():
 
 def create_teams_dict():
     for season in seasons:
+        print(season)
         with open("data/" + season + "/teams.csv", newline='') as csvfile:
             teams_reader = csv.DictReader(csvfile)
             for row in teams_reader:
@@ -88,12 +88,18 @@ def create_teams_dict():
 
 
 def create_players_dict():
+    players_in_season = {}
     for season in seasons:
+        players_in_season[season] = []
         with open("data/" + season + "/players_raw.csv", newline='') as csv_file:
             reader = csv.DictReader(csv_file)
             for row in reader:
-                if row['code'] not in player_codes and int(row['code']) not in ignore_player_codes:
-                    players.append({
+                players_in_season[season].append(row['code'])
+                if row['code'] in players.keys():
+                    players[row['code']]['now_cost'] = int(row['now_cost'])
+                    players[row['code']]['cost_effective'] = int(row['total_points']) / int(row['now_cost'])
+                else:
+                    players[row['code']] = {
                         'first_name': row['first_name'],
                         'second_name': row['second_name'],
                         'web_name': row['web_name'],
@@ -110,9 +116,10 @@ def create_players_dict():
                         'team_strength': teams[row['team_code']]['strength_overall'],
                         'cost_effective': int(row['total_points']) / int(row['now_cost']),
                         'time_effective': calculate_time_effectiveness(row)
-                    })
-                player_codes.append(row['code'])
-
+                    }
+    for i in set(players_in_season[seasons[0]]) - set(players_in_season[seasons[1]]):
+        print("Remove: " + i)
+        players.pop(i)
 
 def calculate_time_effectiveness(row):
     minutes = int(row['minutes'])
@@ -141,11 +148,13 @@ def set_team(index, code):
         data_is_team[team].insert(index, 0)
     data_is_team[code].insert(index, 1)
 
-def normalize_data(player_codes_to_ignore):
+
+def normalize_data(player_keys):
     data_cleanup()
-    for i, player in enumerate(players):
-        if player['code'] not in player_codes_to_ignore:
-            key = player['web_name'] + '_' + player["team_short"]
+    i = 0
+    for player in players.values():
+        if str(player['code']) in player_keys:
+            key = player['web_name'] + '_' + player["team_short"] + "_" + str(player["code"])
             key = key.replace("-", "_")
             key = key.replace(" ", "_")
 
@@ -162,14 +171,14 @@ def normalize_data(player_codes_to_ignore):
                 "Position": player['element_type'],
                 "Cost": player['now_cost'],
                 "Total": player['total_points'],
-                "Code": player['code']
+                "Code": str(player['code']),
+                "Index": i
             }
+            i += 1
     data_cost_effective_normalized = preprocessing.MinMaxScaler().fit_transform(numpy.float32(data_cost_effective).reshape(-1, 1))
     data_team_strength_normalized = preprocessing.MinMaxScaler().fit_transform(numpy.float32(data_team_strength).reshape(-1, 1))
     data_my_score.extend(numpy.add(data_cost_effective_normalized, data_team_strength_normalized).flatten().tolist())
-    print(len(data_my_score))
-    print("Ignored {} players".format(len(player_codes_to_ignore)))
-    print("Normalized {} players".format(len(data_names)))
+    print("Normalized {} players".format(len(data_my_score)))
 
 
 iteration_config = {
@@ -179,21 +188,21 @@ iteration_config = {
         "def": 5,
         "mid": 5,
         "fwd": 3,
-        "total_players": 11
+        "total_players": 15
     },
     1: {
-        "total_cost": 330,
+        "total_cost": 1000,
         "gkp": 1,
-        "def": 1,
-        "mid": 1,
-        "fwd": 1,
-        "total_players": 4
+        "def": 5,
+        "mid": 5,
+        "fwd": 3,
+        "total_players": 11
     }
 }
 
 
-def calculate(player_codes_to_ignore, i):
-    normalize_data(player_codes_to_ignore)
+def calculate(player_keys, i):
+    normalize_data(player_keys)
     print("MyScore: " + str(data_my_score))
     LpVariableList = [pulp.LpVariable('{}'.format(item), lowBound=0, upBound=1, cat="Integer") for item in data_names]
 
@@ -208,6 +217,7 @@ def calculate(player_codes_to_ignore, i):
     problem += pulp.lpSum(LpVariableList[i] * data_is_def[i] for i in range(len(data_names))) >= 1
     problem += pulp.lpSum(LpVariableList[i] * data_is_mid[i] for i in range(len(data_names))) >= 1
     problem += pulp.lpSum(LpVariableList[i] * data_is_fwd[i] for i in range(len(data_names))) >= 1
+
 
     for team in data_is_team.keys():
         problem += pulp.lpSum(LpVariableList[i] * data_is_team[team][i] for i in range(len(data_names))) <= 3
@@ -234,6 +244,9 @@ def calculate(player_codes_to_ignore, i):
     for player in LpVariableList:
         if int(player.value()) > 0:
             p = data_players[str(player)]
+            print("data_my_score: " + str(len(data_my_score)))
+            print("p['Index']: " + str(p['Index']))
+            p['my_score'] = data_my_score[p['Index']]
             total_cost += p['Cost']
             total_points += p['Total']
             picked_codes.append(p['Code'])
@@ -258,7 +271,7 @@ def main():
     create_players_dict()
     print("Gathered {} teams".format(len(teams)))
     print("Gathered {} players".format(len(players)))
-    calculate([], 0)
+    calculate(players.keys(), 0)
     calculate(picked_codes, 1)
 
 
