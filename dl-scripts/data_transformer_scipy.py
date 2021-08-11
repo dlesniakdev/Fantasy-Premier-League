@@ -162,6 +162,7 @@ def normalize_data(player_keys):
             data_cost.insert(i, player['now_cost'])
             data_total_points.insert(i, player['total_points'])
             data_cost_effective.insert(i, player['cost_effective'])
+            data_time_effective.insert(i, player['time_effective'])
             data_team_strength.insert(i, player['team_strength'])
             set_position(i, player['element_type'])
             set_team(i, player['team_code'])
@@ -207,7 +208,10 @@ def calculate(player_keys, i):
     LpVariableList = [pulp.LpVariable('{}'.format(item), lowBound=0, upBound=1, cat="Integer") for item in data_names]
 
     problem = pulp.LpProblem(name="Fantasy Football - Total Points Maximizer", sense=pulp.LpMaximize)
-    problem += pulp.lpSum(LpVariableList[i] * data_my_score[i] for i in range(len(data_names))), "Objective"
+    if i == 0:
+        problem += pulp.lpSum(LpVariableList[i] * data_my_score[i] for i in range(len(data_names))), "Objective"
+    else:
+        problem += pulp.lpSum(LpVariableList[i] * data_total_points[i] for i in range(len(data_names))), "Objective"
     problem += pulp.lpSum(LpVariableList[i] * data_cost[i] for i in range(len(data_names))) <= iteration_config[i]['total_cost']
     problem += pulp.lpSum(LpVariableList[i] * data_is_gkp[i] for i in range(len(data_names))) <= iteration_config[i]['gkp']
     problem += pulp.lpSum(LpVariableList[i] * data_is_def[i] for i in range(len(data_names))) <= iteration_config[i]['def']
@@ -244,8 +248,6 @@ def calculate(player_keys, i):
     for player in LpVariableList:
         if int(player.value()) > 0:
             p = data_players[str(player)]
-            print("data_my_score: " + str(len(data_my_score)))
-            print("p['Index']: " + str(p['Index']))
             p['my_score'] = data_my_score[p['Index']]
             total_cost += p['Cost']
             total_points += p['Total']
