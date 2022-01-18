@@ -42,6 +42,8 @@ def get_expected_points(gw, directory):
     return xPoints
 
 def merge_gw(gw, gw_directory):
+    print("merge_gw(gw, gw_directory)")
+    print("merge_gw(" + str(gw) + ", " + str(gw_directory) + ")")
     merged_gw_filename = "merged_gw.csv"
     gw_filename = "gw" + str(gw) + ".csv"
     gw_path = os.path.join(gw_directory, gw_filename)
@@ -56,16 +58,18 @@ def merge_gw(gw, gw_directory):
     out_path = os.path.join(gw_directory, merged_gw_filename)
     fout = open(out_path,'a', encoding="utf-8")
     writer = csv.DictWriter(fout, fieldnames=fieldnames, lineterminator='\n')
-    print(gw)
+    print("gw: " + str(gw))
     if gw == 1:
         writer.writeheader()
     for row in rows:
         writer.writerow(row)
 
 def collect_gw(gw, directory_name, output_dir):
+    print("collect_gw(gw, directory_name, output_dir)")
+    print("collect_gw(" + str(gw) + ", " + str(directory_name) + ", " + str(output_dir) + ")")
     rows = []
     fieldnames = []
-    root_directory_name = "data/2020-21/"
+    root_directory_name = "data/2021-22/"
     fixtures_home, fixtures_away = get_fixtures(root_directory_name)
     teams = get_teams(root_directory_name)
     names, positions = get_positions(root_directory_name)
@@ -103,7 +107,7 @@ def collect_gw(gw, directory_name, output_dir):
         writer.writerow(row)
 
 def collect_all_gws(directory_name, output_dir):
-    for i in range(1,5):
+    for i in range(1,3):
         collect_gw(i, directory_name, output_dir)
 
 def merge_all_gws(num_gws, gw_directory):
@@ -111,8 +115,8 @@ def merge_all_gws(num_gws, gw_directory):
         merge_gw(i, gw_directory)
 
 def main():
-    #collect_all_gws(sys.argv[1], sys.argv[2])
-    merge_all_gws(int(sys.argv[1]), sys.argv[2])
+    collect_all_gws("data/2021-22/players/", "data/2021-22/gws/")
+    merge_all_gws(3, "data/2021-22/gws/")
     #collect_gw(35, sys.argv[1], sys.argv[2])
 
 if __name__ == '__main__':

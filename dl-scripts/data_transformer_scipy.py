@@ -118,7 +118,6 @@ def create_players_dict():
                         'time_effective': calculate_time_effectiveness(row)
                     }
     for i in set(players_in_season[seasons[0]]) - set(players_in_season[seasons[1]]):
-        print("Remove: " + i)
         players.pop(i)
 
 def calculate_time_effectiveness(row):

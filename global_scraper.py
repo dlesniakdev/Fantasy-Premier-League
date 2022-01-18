@@ -20,11 +20,11 @@ def parse_data():
         xPoint['id'] = e['id']
         xPoint['xP'] = e['ep_this']
         xPoints += [xPoint]
-    gw_num = 0
-    events = data["events"]
-    for event in events:
-        if event["is_current"] == True:
-            gw_num = event["id"]
+    gw_num = 3
+    # events = data["events"]
+    # for event in events:
+    #     if event["is_current"] == True:
+    #         gw_num = event["id"]
     print("Cleaning summary data")
     clean_players(base_filename + 'players_raw.csv', base_filename)
     print("Getting fixtures data")
@@ -43,7 +43,9 @@ def parse_data():
         parse_player_history(player_data["history_past"], player_base_filename, name, i)
         parse_player_gw_history(player_data["history"], player_base_filename, name, i)
     if gw_num > 0:
-        print("Writing expected points")
+        print("Writing expected points for gw" + str(gw_num))
+        if not os.path.exists(gw_base_filename):
+            os.mkdir(gw_base_filename)
         with open(os.path.join(gw_base_filename, 'xP' + str(gw_num) + '.csv'), 'w+') as outf:
             w = csv.DictWriter(outf, ['id', 'xP'])
             w.writeheader()
